@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            width: 280px;
+            background-color: #fff;
+            padding: 25px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            overflow-y: auto;
+        }
+        
+        .sidebar h1 {
+            color: #1a73e8;
+            margin-bottom: 20px;
+            font-size: 22px;
+            font-weight: 600;
+        }
+        
+        .add-video-form {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #5f6368;
+        }
+        
+        input[type="text"],
+        input[type="url"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button[type="submit"] {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        button[type="submit"]:hover {
+            background-color: #1765d8;
+        }
+        
+        .search-bar {
+            margin-top: 20px;
+        }
+        
+        .search-bar input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .pagination {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .pagination button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .pagination button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .pagination button:hover:not(:disabled) {
+            background-color: #1765d8;
+        }
+        
+        .page-info {
+            margin-top: 10px;
+            text-align: center;
+            font-size: 14px;
+            color: #5f6368;
+        }
+        
+        .main-content {
+            flex: 1;
+            padding: 25px;
+            margin-left: 280px;
+        }
+        
+        .main-content h2 {
+            color: #5f6368;
+            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: 500;
+        }
+        
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 148px);
+            gap: 15px;
+        }
+        
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            width: 148px;
+            height: 215px;
+            background-color: white;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card img {
+            width: 148px;
+            height: 148px;
+            object-fit: cover;
+        }
+        
+        .card-content {
+            padding: 8px;
+        }
+        
+        .card h3 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #5f6368;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .card-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+        }
+        
+        .card-actions button {
+            background-color: transparent;
+            border: 1px solid #1a73e8;
+            color: #1a73e8;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        
+        .card-actions button:hover {
+            background-color: #1a73e8;
+            color: white;
+        }
+        
+        .video-player {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .video-player video {
+            width: 80%;
+            max-width: 1200px;
+            height: auto;
+        }
+        
+        .close-player {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+        
+        .error-message {
+            color: #dc3545;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 240px;
+            }
+            
+            .main-content {
+                margin-left: 240px;
+            }
+            
+            .cards-container {
+                grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+            }
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: static;
+                padding: 15px;
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: 15px;
+            }
+            
+            .cards-container {
+                grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1>吴迪视频库</h1>
+        
+        <div class="add-video-form">
+            <h2>添加新视频</h2>
+            <form id="video-form">
+                <div class="form-group">
+                    <label for="video-title">视频名称</label>
+                    <input type="text" id="video-title" placeholder="输入视频名称" required>
+                </div>
+                <div class="form-group">
+                    <label for="video-url">M3U8 地址</label>
+                    <input type="url" id="video-url" placeholder="输入M3U8地址" required>
+                </div>
+                <div class="form-group">
+                    <label for="thumbnail-url">封面图片URL</label>
+                    <input type="url" id="thumbnail-url" placeholder="输入封面图片URL">
+                </div>
+                <button type="submit">保存</button>
+            </form>
+            <div id="form-error" class="error-message"></div>
+        </div>
+        
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="搜索视频...">
+            <button id="search-button" type="submit">搜索</button>
+            <button onclick="refreshPage()" type="submit">刷新页面</button>
+        </div>
+        
+        <!-- 分页控件 -->
+        <div class="pagination">
+            <button id="prev-page">上一页</button>
+            <button id="next-page">下一页</button>
+        </div>
+        <div class="page-info" id="page-info">
+            第 1 页 / 共 0 页
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <h2>视频列表</h2>
+        <div class="cards-container" id="cards-container">
+            <!-- 卡片将在这里动态生成 -->
+        </div>
+    </div>
+    
+    <div class="video-player" id="video-player">
+        <span class="close-player" id="close-player">&times;</span>
+        <video id="video-element" controls></video>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const videoForm = document.getElementById('video-form');
+            const cardsContainer = document.getElementById('cards-container');
+            const videoPlayer = document.getElementById('video-player');
+            const videoElement = document.getElementById('video-element');
+            const closePlayerBtn = document.getElementById('close-player');
+            const searchInput = document.getElementById('search-input');
+            const searchButton = document.getElementById('search-button');
+            const formError = document.getElementById('form-error');
+            const prevPageBtn = document.getElementById('prev-page');
+            const nextPageBtn = document.getElementById('next-page');
+            const pageInfo = document.getElementById('page-info');
+            
+            let allCards = [];  // 存储所有卡片数据
+            let currentPage = 1;
+            const pageSize = 42;  // 每页显示12个视频
+            let totalPages = 0;
+            let currentSearchTerm = '';
+            let hls = null;
+            
+            // 获取所有卡片
+            function fetchCards() {
+                fetch('/api/videos')
+                    .then(response => response.json())
+                    .then(data => {
+                        allCards = data;
+                        currentPage = 1;  // 重置到第一页
+                        renderCards(currentSearchTerm);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+            }
+            
+            // 渲染当前页的卡片
+            function renderCards(searchTerm = '') {
+                currentSearchTerm = searchTerm;
+                
+                // 过滤卡片
+                const filteredCards = searchTerm 
+                    ? allCards.filter(card => 
+                        card.title.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    : allCards;
+                    
+                // 计算总页数
+                totalPages = Math.max(1, Math.ceil(filteredCards.length / pageSize));
+                
+                // 确保当前页在有效范围内
+                if (currentPage > totalPages) {
+                    currentPage = totalPages;
+                }
+                
+                // 计算当前页的卡片
+                const startIndex = (currentPage - 1) * pageSize;
+                const currentCards = filteredCards.slice(startIndex, startIndex + pageSize);
+                
+                // 更新UI
+                cardsContainer.innerHTML = '';
+                
+                currentCards.forEach(card => {
+                    const cardElement = document.createElement('div');
+                    cardElement.className = 'card';
+                    cardElement.dataset.id = card.id;
+                    
+                    const thumbnailUrl = card.thumbnail_url || 'https://via.placeholder.com/148x100?text=No+thumbnail';
+                    
+                    cardElement.innerHTML = `
+                        <img src="${thumbnailUrl}" alt="${card.title}">
+                        <div class="card-content">
+                            <h3>${card.title}</h3>
+                            <div class="card-actions">
+                                <button class="play-btn">播放</button>
+                                <button class="delete-btn">删除</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    cardsContainer.appendChild(cardElement);
+                    
+                    cardElement.querySelector('.play-btn').addEventListener('click', () => {
+                        playVideo(card.url);
+                    });
+                    
+                    cardElement.querySelector('.delete-btn').addEventListener('click', () => {
+                        deleteCard(card.id);
+                    });
+                });
+                
+                // 更新分页信息
+                updatePaginationUI();
+            }
+            
+            // 更新分页UI状态
+            function updatePaginationUI() {
+                prevPageBtn.disabled = currentPage === 1;
+                nextPageBtn.disabled = currentPage === totalPages;
+                pageInfo.textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
+            }
+            
+            // 播放视频
+            function playVideo(videoUrl) {
+                videoPlayer.style.display = 'flex';
+                
+                // 清除之前的HLS实例
+                if (hls) {
+                    hls.destroy();
+                    hls = null;
+                }
+                
+                if (Hls.isSupported() && videoUrl.endsWith('.m3u8')) {
+                    hls = new Hls();
+                    hls.loadSource(videoUrl);
+                    hls.attachMedia(videoElement);
+                    
+                    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                        videoElement.play();
+                    });
+
+                    hls.on(Hls.Events.ERROR, function (event, data) {
+                        if (data.fatal) {
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    console.error('网络错误，请检查视频URL。');
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    console.error('媒体错误，请刷新页面重试。');
+                                    break;
+                                default:
+                                    console.error('发生错误：', data);
+                                    break;
+                            }
+                        }
+                    });
+                } else {
+                    alert('您的浏览器不支持播放此视频格式。');
+                }
+            }
+            
+            // 关闭播放器
+            function closePlayer() {
+                videoPlayer.style.display = 'none';
+                if (hls) {
+                    hls.destroy();
+                    hls = null;
+                }
+                videoElement.pause();
+            }
+            
+            // 添加卡片
+            videoForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const title = document.getElementById('video-title').value;
+                const url = document.getElementById('video-url').value;
+                const thumbnailUrl = document.getElementById('thumbnail-url').value;
+                
+                const newCard = {
+                    title,
+                    url,
+                    thumbnail_url: thumbnailUrl
+                };
+                
+                fetch('/api/videos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(newCard),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    formError.textContent = '';
+                    videoForm.reset();
+                    fetchCards();  // 添加成功后重新获取所有卡片
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    formError.textContent = '保存失败，请检查输入是否正确';
+                });
+            });
+            
+            // 删除卡片
+            function deleteCard(id) {
+                if (confirm('确定要删除这个视频吗？')) {
+                    fetch(`/api/videos/${id}`, {
+                        method: 'DELETE',
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(() => {
+                        fetchCards();  // 删除成功后重新获取所有卡片
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                }
+            }
+            
+            // 分页按钮事件
+            prevPageBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderCards(currentSearchTerm);
+                }
+            });
+            
+            nextPageBtn.addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderCards(currentSearchTerm);
+                }
+            });
+            
+            // 播放器控制事件
+            closePlayerBtn.addEventListener('click', closePlayer);
+            
+            // 搜索功能
+            searchButton.addEventListener('click', () => {
+                const searchTerm = searchInput.value.trim();
+                currentPage = 1;  // 搜索时重置到第一页
+                renderCards(searchTerm);
+            });
+            
+            searchInput.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    const searchTerm = searchInput.value.trim();
+                    currentPage = 1;  // 搜索时重置到第一页
+                    renderCards(searchTerm);
+                }
+            });
+            
+            // 初始化
+            fetchCards();
+        });
+        
+        function refreshPage() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>

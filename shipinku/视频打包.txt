@@ -1,0 +1,1 @@
+pyinstaller --onefile --name 视频库 --add-data "index.html:." --icon=app_icon.ico  --noconsole shipin.py
